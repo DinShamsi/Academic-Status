@@ -291,12 +291,11 @@
                 <p>הכלי הזה נבנה כדי לעזור לכם לעקוב בקלות אחר הציונים, לחשב ממוצעים ולהבין את מצבכם האקדמי. מטרתו המרכזית היא לתת לכם <strong>שליטה מלאה על הנתונים</strong> ולאפשר לכם לראות איך כל שינוי ציון משפיע מיידית על הממוצע.</p>
                 
                 <div>
-                    <h3 class="font-bold text-lg mb-2 text-gray-800 dark:text-gray-200">פרטיות וגיבוי נתונים</h3>
+                    <h3 class="font-bold text-lg mb-2 text-gray-800 dark:text-gray-200">פרטיות, גיבוי ושחזור נתונים</h3>
                     <ul class="list-disc list-inside space-y-1">
-                        <li><strong>איפה הנתונים נשמרים?</strong> כל המידע נשמר באופן מקומי על הדפדפן שלכם בלבד.</li>
-                        <li><strong>הפרטיות שלכם מובטחת:</strong> מפתח האתר אינו יכול לראות את הנתונים שלכם. המידע לא נשלח לשום שרת.</li>
-                         <li><strong>גיבוי ושחזור:</strong> מומלץ לגבות את הנתונים מדי פעם באמצעות כפתור <strong>"ייצוא ל-CSV"</strong>. אם תצטרכו לשחזר, השתמשו בכפתור <strong>"ייבוא מ-CSV"</strong>.</li>
-                        <li><strong>שימו לב:</strong> אם תבצעו <strong>"ניקוי נתוני גלישה"</strong> בדפדפן, כל המידע שהזנתם יימחק לצמיתות!</li>
+                        <li><strong>הפרטיות שלכם מעל הכל:</strong> כל המידע שאתם מזינים נשמר באופן מקומי על הדפדפן שלכם בלבד. מפתח האתר או כל גורם אחר אינם יכולים לגשת לנתונים שלכם.</li>
+                        <li><strong>גיבוי הנתונים שלכם:</strong> מכיוון שהמידע נשמר רק אצלכם, אם תנקו את נתוני הגלישה בדפדפן או תחליפו מחשב, המידע יימחק. כדי למנוע זאת, מומלץ לגבות את הנתונים באופן קבוע באמצעות כפתור <strong>"ייצוא ל-CSV"</strong>. פעולה זו תשמור את כל הציונים שלכם בקובץ מאובטח על המחשב האישי.</li>
+                        <li><strong>שחזור קל ומהיר:</strong> אם מחקתם בטעות את הנתונים או עברתם למכשיר חדש, תוכלו לשחזר הכל בקלות. לחצו על <strong>"ייבוא מ-CSV"</strong> ובחרו את קובץ הגיבוי ששמרתם. כל הנתונים שלכם יחזרו מיד לאפליקציה.</li>
                     </ul>
                 </div>
 
@@ -395,7 +394,7 @@
         const searchInput = document.getElementById('search-input');
         const filterSemesterEl = document.getElementById('filter-semester');
         const filterCategoryEl = document.getElementById('filter-category');
-        const csvFileInput = document.getElementById('csv-file-input'); // Added this line
+        const csvFileInput = document.getElementById('csv-file-input');
 
         // --- CHARTS ---
         let moedChart, trendChart;
@@ -765,13 +764,29 @@
         confirmModal.addEventListener('click', (e) => {
             if (e.target === confirmModal) confirmModal.classList.add('hidden');
         });
+        
         document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+            // Reset the state object to its default values
             state.courses = [];
             state.userInfo = { name: '', institution: '', major: '', requiredCredits: 120, categories: ['חובה', 'בחירה', 'כללי', 'ספורט'] };
+            state.viewState = { searchTerm: '', filterSemester: 'all', filterCategory: 'all', sortBy: 'semester', sortOrder: 'asc' };
+
+            // Hide modals
             confirmModal.classList.add('hidden');
             settingsModal.classList.add('hidden');
+            
+            // Reset the form in case it was in edit mode
             exitEditMode();
-            init(); // Re-initialize to reset everything
+
+            // Reset the settings form fields manually
+            userNameInput.value = '';
+            institutionInput.value = '';
+            majorInput.value = '';
+            requiredCreditsInput.value = state.userInfo.requiredCredits;
+            userCategoriesInput.value = state.userInfo.categories.join(', ');
+
+            // Update the entire UI, which will also save the new empty state
+            updateDashboard();
         });
 
         // What-If Modal
@@ -1048,5 +1063,3 @@
     </script>
 </body>
 </html>
-
-
