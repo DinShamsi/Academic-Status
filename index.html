@@ -36,7 +36,7 @@
         .sortable:hover { color: #3b82f6; }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-gray-900 bg-[url('background.png')] bg-cover bg-center bg-fixed transition-colors duration-300">
+<body class="bg-gray-100 dark:bg-gray-900 bg-[url('bg.png')] bg-cover bg-center bg-fixed transition-colors duration-300">
 
     <div class="container mx-auto p-4 sm:p-6 lg:p-8">
         
@@ -135,12 +135,17 @@
                 <div class="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm">
                     <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
                         <h2 class="text-xl font-bold text-gray-800 dark:text-gray-200">רשימת קורסים</h2>
-                        <div class="flex gap-2">
-                            <button id="what-if-btn" class="flex items-center gap-2 text-sm bg-purple-500 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-purple-600 transition">
+                        <div class="flex gap-2 flex-wrap">
+                            <button id="what-if-btn" class="flex items-center gap-2 text-sm bg-yellow-500 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-yellow-600 transition">
                                 <i data-lucide="calculator" class="w-4 h-4"></i>
                                 מחשבון "מה אם"
                             </button>
-                             <button id="export-csv-btn" class="flex items-center gap-2 text-sm bg-green-500 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-green-600 transition">
+                             <button id="import-csv-btn" class="flex items-center gap-2 text-sm bg-purple-500 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-purple-600 transition">
+                                <i data-lucide="upload" class="w-4 h-4"></i>
+                                ייבוא מ-CSV
+                            </button>
+                            <input type="file" id="csv-file-input" class="hidden" accept=".csv">
+                            <button id="export-csv-btn" class="flex items-center gap-2 text-sm bg-green-500 text-white font-semibold px-3 py-1.5 rounded-lg hover:bg-green-600 transition">
                                 <i data-lucide="download" class="w-4 h-4"></i>
                                 ייצוא ל-CSV
                             </button>
@@ -286,10 +291,11 @@
                 <p>הכלי הזה נבנה כדי לעזור לכם לעקוב בקלות אחר הציונים, לחשב ממוצעים ולהבין את מצבכם האקדמי. מטרתו המרכזית היא לתת לכם <strong>שליטה מלאה על הנתונים</strong> ולאפשר לכם לראות איך כל שינוי ציון משפיע מיידית על הממוצע.</p>
                 
                 <div>
-                    <h3 class="font-bold text-lg mb-2 text-gray-800 dark:text-gray-200">פרטיות ושמירת נתונים</h3>
+                    <h3 class="font-bold text-lg mb-2 text-gray-800 dark:text-gray-200">פרטיות וגיבוי נתונים</h3>
                     <ul class="list-disc list-inside space-y-1">
                         <li><strong>איפה הנתונים נשמרים?</strong> כל המידע נשמר באופן מקומי על הדפדפן שלכם בלבד.</li>
                         <li><strong>הפרטיות שלכם מובטחת:</strong> מפתח האתר אינו יכול לראות את הנתונים שלכם. המידע לא נשלח לשום שרת.</li>
+                         <li><strong>גיבוי ושחזור:</strong> מומלץ לגבות את הנתונים מדי פעם באמצעות כפתור <strong>"ייצוא ל-CSV"</strong>. אם תצטרכו לשחזר, השתמשו בכפתור <strong>"ייבוא מ-CSV"</strong>.</li>
                         <li><strong>שימו לב:</strong> אם תבצעו <strong>"ניקוי נתוני גלישה"</strong> בדפדפן, כל המידע שהזנתם יימחק לצמיתות!</li>
                     </ul>
                 </div>
@@ -389,6 +395,7 @@
         const searchInput = document.getElementById('search-input');
         const filterSemesterEl = document.getElementById('filter-semester');
         const filterCategoryEl = document.getElementById('filter-category');
+        const csvFileInput = document.getElementById('csv-file-input'); // Added this line
 
         // --- CHARTS ---
         let moedChart, trendChart;
@@ -402,7 +409,16 @@
         function loadState() {
             const savedState = localStorage.getItem('academicTrackerState_v2');
             if (savedState) {
-                state = { ...state, ...JSON.parse(savedState) };
+                let loadedData = JSON.parse(savedState);
+                state = { ...state, ...loadedData };
+
+                // Robustness checks for older data structures
+                if (!state.userInfo) {
+                     state.userInfo = { name: '', institution: '', major: '', requiredCredits: 120, categories: ['חובה', 'בחירה', 'כללי', 'ספורט'] };
+                }
+                if (!state.userInfo.categories || !Array.isArray(state.userInfo.categories)) {
+                    state.userInfo.categories = ['חובה', 'בחירה', 'כללי', 'ספורט'];
+                }
                 if (!state.viewState) {
                     state.viewState = { searchTerm: '', filterSemester: 'all', filterCategory: 'all', sortBy: 'semester', sortOrder: 'asc' };
                 }
@@ -791,7 +807,60 @@
             document.documentElement.classList.toggle('dark', state.darkMode);
         }
 
-        // Export to CSV
+        // --- CSV Import / Export Logic ---
+        document.getElementById('import-csv-btn').addEventListener('click', () => {
+            csvFileInput.click();
+        });
+
+        csvFileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const text = e.target.result;
+                    const lines = text.split('\n').filter(line => line.trim() !== '').slice(1); // Skip header, remove empty lines
+                    const newCourses = [];
+
+                    lines.forEach((line, index) => {
+                        const columns = line.split(',');
+                        if (columns.length < 7) return; 
+
+                        const name = columns[0].trim().replace(/"/g, '');
+                        const category = columns[1].trim();
+                        const credits = parseFloat(columns[2]);
+                        const gradeStr = columns[3].trim();
+                        const semester = parseInt(columns[4]);
+                        const isMoedB = columns[5].trim() === 'כן';
+                        const isPassFail = columns[6].trim() === 'כן';
+
+                        const grade = isPassFail ? null : parseInt(gradeStr);
+
+                        if (name && category && !isNaN(credits) && !isNaN(semester)) {
+                             newCourses.push({
+                                id: Date.now() + index,
+                                name, category, credits, grade, semester, isMoedB, isPassFail
+                            });
+                        }
+                    });
+                    
+                    if (confirm(`האם אתה בטוח שברצונך להחליף את כל הנתונים הקיימים ב-${newCourses.length} קורסים מהקובץ?`)) {
+                        state.courses = newCourses;
+                        updateDashboard();
+                        alert(`ייבוא הושלם בהצלחה!`);
+                    }
+                } catch (error) {
+                    console.error("Error parsing CSV:", error);
+                    alert("שגיאה בייבוא הקובץ. אנא ודא שהקובץ תקין ובפורמט הנכון.");
+                } finally {
+                    csvFileInput.value = ''; 
+                }
+            };
+            reader.readAsText(file, 'UTF-8');
+        });
+
+
         document.getElementById('export-csv-btn').addEventListener('click', () => {
             if (state.courses.length === 0) {
                 alert('אין נתונים לייצוא.');
@@ -803,14 +872,22 @@
             const sortedCourses = getFilteredAndSortedCourses();
 
             sortedCourses.forEach(course => {
-                const row = [course.name, course.category, course.credits, course.isPassFail ? "בינארי" : course.grade, course.semester, course.isMoedB ? 'כן' : 'לא', course.isPassFail ? 'כן' : 'לא'].join(',');
+                const row = [
+                    `"${course.name.replace(/"/g, '""')}"`,
+                    course.category,
+                    course.credits,
+                    course.isPassFail ? "" : course.grade,
+                    course.semester,
+                    course.isMoedB ? 'כן' : 'לא',
+                    course.isPassFail ? 'כן' : 'לא'
+                ].join(',');
                 csvContent += row + "\r\n";
             });
 
             const encodedUri = encodeURI(csvContent);
             const link = document.createElement("a");
             link.setAttribute("href", encodedUri);
-            link.setAttribute("download", "academic_grades.csv");
+            link.setAttribute("download", `academic_grades_${new Date().toISOString().split('T')[0]}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -840,7 +917,7 @@
                 if (typeof aVal === 'string') {
                     comparison = aVal.localeCompare(bVal, 'he');
                 } else {
-                    comparison = aVal - bVal;
+                    comparison = (aVal || 0) - (bVal || 0); // handle null grades
                 }
 
                 return state.viewState.sortOrder === 'asc' ? comparison : -comparison;
@@ -971,6 +1048,4 @@
     </script>
 </body>
 </html>
-
-
 
